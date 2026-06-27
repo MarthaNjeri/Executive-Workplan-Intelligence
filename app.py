@@ -95,13 +95,25 @@ if not df_tasks.empty:
     if priority_col:
         df_tasks[priority_col] = df_tasks[priority_col].astype(str).str.strip().str.upper()
 
-    # Core Metric Calculations
+    # =========================================================
+    # 🔍 RESILIENT TEXT PARSING LAYER
+    # =========================================================
     total_tasks = len(df_tasks)
-    completed_tasks = len(df_tasks[df_tasks[status_col] == "COMPLETED"]) if status_col else 0
-    delayed_tasks = len(df_tasks[df_tasks[status_col].isin(["DELAYED", "BLOCKED"])]) if status_col else 0
     
+    # Check for text patterns matching completed variants (COMPLETED, DONE)
+    if status_col:
+        completed_tasks = len(df_tasks[df_tasks[status_col].str.contains("COMPLETED|DONE", na=False)])
+        delayed_tasks = len(df_tasks[df_tasks[status_col].str.contains("DELAYED|BLOCKED|PENDING", na=False)])
+    else:
+        completed_tasks = 0
+        delayed_tasks = 0
+    
+    # Check for text patterns matching high priority variants (HIGH, CRITICAL)
     if priority_col and status_col:
-        high_priority_open = len(df_tasks[(df_tasks[priority_col] == "HIGH") & (df_tasks[status_col] != "COMPLETED")])
+        high_priority_open = len(df_tasks[
+            (df_tasks[priority_col].str.contains("HIGH|CRITICAL", na=False)) & 
+            (~df_tasks[status_col].str.contains("COMPLETED|DONE", na=False))
+        ])
     else:
         high_priority_open = 0
     
@@ -124,6 +136,10 @@ if not df_tasks.empty:
     st.markdown("### 📋 Primary Operational Ledger")
     expected_cols = ["DATE", "KEY_RESPONSIBILITY", "KEY_TASK_TO_BE_UNDERTAKEN", "EXPECTED_DELIVERABLES", "STATUS", "PRIORITY"]
     display_cols = [c for c in expected_cols if c in df_tasks.columns]
+    
+    if not display_cols:
+        display_cols = df_tasks.columns.tolist()
+        
     st.dataframe(df_tasks[display_cols], use_container_width=True, hide_index=True)
 
 else:
